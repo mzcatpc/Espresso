@@ -156,7 +156,9 @@ func CreateExecutionNode(
 		}
 	}
 
-	if config.Sequencer.Enable {
+	// TODO: Noah figure out how to correctly set the enable flag from the nitro test node script
+	//if config.Sequencer.Enable {
+	if true {
 		seqConfigFetcher := func() *SequencerConfig { return &configFetcher().Sequencer }
 		sequencer, err = NewSequencer(execEngine, parentChainReader, seqConfigFetcher)
 		if err != nil {
