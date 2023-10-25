@@ -169,6 +169,7 @@ func CreateExecutionNode(
 		} else if config.forwardingTarget == "" {
 			txPublisher = NewTxDropper()
 		} else {
+			// Make sure this Forwarder can publish the txs to Espresso Sequencer
 			txPublisher = NewForwarder(config.forwardingTarget, &config.Forwarder)
 		}
 	}
