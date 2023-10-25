@@ -66,6 +66,7 @@ type SequencerConfig struct {
 	MaxTxDataSize               int             `koanf:"max-tx-data-size" reload:"hot"`
 	NonceFailureCacheSize       int             `koanf:"nonce-failure-cache-size" reload:"hot"`
 	NonceFailureCacheExpiry     time.Duration   `koanf:"nonce-failure-cache-expiry" reload:"hot"`
+	Espresso                    bool
 }
 
 func (c *SequencerConfig) Validate() error {
@@ -268,6 +269,15 @@ func (c nonceFailureCache) Add(err NonceError, queueItem txQueueItem) {
 	}
 }
 
+type HotShotIndex struct {
+	blockIdx uint64
+	txnIdx   uint64
+}
+
+type HotShotTxnFetcherInterface interface {
+	NextArbitrumTxn(index HotShotIndex)
+}
+
 type Sequencer struct {
 	stopwaiter.StopWaiter
 
@@ -291,6 +301,9 @@ type Sequencer struct {
 	activeMutex sync.Mutex
 	pauseChan   chan struct{}
 	forwarder   *TxForwarder
+
+	// Pointer to the last hotshot transaction sequenced, only used if we are operating in Espresso mode
+	hotShotIndex *HotShotIndex
 }
 
 func NewSequencer(execEngine *ExecutionEngine, l1Reader *headerreader.HeaderReader, configFetcher SequencerConfigFetcher) (*Sequencer, error) {
@@ -710,7 +723,116 @@ func (s *Sequencer) precheckNonces(queueItems []txQueueItem) []txQueueItem {
 	return outputQueueItems
 }
 
+func (s *Sequencer) createBlockEspresso(ctx context.Context) (returnValue bool) {
+	var txns []types.Transaction
+	var totalBatchSize int
+
+	config := s.config()
+
+	for {
+		var txn types.Transaction
+		txn, err = hotshot.NextArbitrumTransaction()
+		txBytes, err := txn.MarshalBinary()
+		if err != nil {
+			//queueItem.returnResult(err)
+			continue
+		}
+		if len(txBytes) > config.MaxTxDataSize {
+			// This tx is too large
+			// queueItem.returnResult(txpool.ErrOversizedData)
+			continue
+		}
+		if totalBatchSize+len(txBytes) > config.MaxTxDataSize {
+			// This tx would be too large to add to this batch
+			// End the batch here to put this tx in the next one, update last processed block and txn idx
+			break
+		}
+		totalBatchSize += len(txBytes)
+		queueItems = append(queueItems, txn)
+	}
+
+	txes := make([]*types.Transaction, len(queueItems))
+	hooks := s.makeSequencingHooks()
+	hooks.ConditionalOptionsForTx = make([]*arbitrum_types.ConditionalOptions, len(queueItems))
+	for i, queueItem := range queueItems {
+		txes[i] = tx
+	}
+
+	timestamp := time.Now().Unix()
+	s.L1BlockAndTimeMutex.Lock()
+	l1Block := s.l1BlockNumber
+	l1Timestamp := s.l1Timestamp
+	s.L1BlockAndTimeMutex.Unlock()
+
+	if s.l1Reader != nil && (l1Block == 0 || math.Abs(float64(l1Timestamp)-float64(timestamp)) > config.MaxAcceptableTimestampDelta.Seconds()) {
+		log.Error(
+			"cannot sequence: unknown L1 block or L1 timestamp too far from local clock time",
+			"l1Block", l1Block,
+			"l1Timestamp", time.Unix(int64(l1Timestamp), 0),
+			"localTimestamp", time.Unix(int64(timestamp), 0),
+		)
+		return false
+	}
+
+	header := &arbostypes.L1IncomingMessageHeader{
+		Kind:        arbostypes.L1MessageType_L2Message,
+		Poster:      l1pricing.BatchPosterAddress,
+		BlockNumber: l1Block,
+		Timestamp:   uint64(timestamp),
+		RequestId:   nil,
+		L1BaseFee:   nil,
+	}
+
+	start := time.Now()
+	block, err := s.execEngine.SequenceTransactions(header, txes, hooks)
+	elapsed := time.Since(start)
+	blockCreationTimer.Update(elapsed)
+	if elapsed >= time.Second*5 {
+		var blockNum *big.Int
+		if block != nil {
+			blockNum = block.Number()
+		}
+		log.Warn("took over 5 seconds to sequence a block", "elapsed", elapsed, "numTxes", len(txes), "success", block != nil, "l2Block", blockNum)
+	}
+	if err == nil && len(hooks.TxErrors) != len(txes) {
+		err = fmt.Errorf("unexpected number of error results: %v vs number of txes %v", len(hooks.TxErrors), len(txes))
+	}
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			// thread closed. We'll later try to forward these messages.
+			for _, item := range queueItems {
+				s.txRetryQueue.Push(item)
+			}
+			return true // don't return failure to avoid retrying immediately
+		}
+		log.Error("error sequencing transactions", "err", err)
+		for _, queueItem := range queueItems {
+			queueItem.returnResult(err)
+		}
+		return false
+	}
+
+	if block != nil {
+		successfulBlocksCounter.Inc(1)
+		s.nonceCache.Finalize(block)
+	}
+
+	return true
+}
+
+func (s *Sequencer) usingEspresso() bool {
+	return s.config().Espresso
+}
+
 func (s *Sequencer) createBlock(ctx context.Context) (returnValue bool) {
+	if s.usingEspresso() {
+		return s.createBlockEspresso(ctx)
+	} else {
+		return s.createBlockDefault(ctx)
+	}
+}
+
+func (s *Sequencer) createBlockDefault(ctx context.Context) (returnValue bool) {
 	var queueItems []txQueueItem
 	var totalBatchSize int
 
