@@ -5,6 +5,7 @@ package gethexec
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/offchainlabs/nitro/arbutil"
+	"github.com/offchainlabs/nitro/espresso"
 	"github.com/offchainlabs/nitro/execution"
 	"github.com/offchainlabs/nitro/util/arbmath"
 	"github.com/offchainlabs/nitro/util/containers"
@@ -275,7 +277,37 @@ type HotShotIndex struct {
 }
 
 type HotShotTxnFetcherInterface interface {
-	NextArbitrumTxn(index HotShotIndex)
+	GetArbitrumTxn(ctx context.Context, index HotShotIndex) (*types.Transaction, error)
+}
+
+type HotShotTxnFetcher struct {
+	client espresso.Client
+}
+
+func NewHotShotTxnFetcher(url string) *HotShotTxnFetcher {
+	return &HotShotTxnFetcher{
+		client: *espresso.NewClient(log.New(), url),
+	}
+}
+
+func (f *HotShotTxnFetcher) GetArbitrumTxn(ctx context.Context, index HotShotIndex) (*types.Transaction, error) {
+	// TODO remove hardcoded namespacej
+	namespace := uint64(0)
+	windowStart, err := f.client.FetchHeadersForWindow(ctx, index.blockIdx, index.blockIdx)
+	if err != nil {
+		return nil, err
+	}
+	txns, err := f.client.FetchTransactionsInBlock(ctx, index.blockIdx, &windowStart.Window[0], namespace)
+	if err != nil {
+		return nil, err
+	}
+	bytes := txns.Transactions[index.txnIdx]
+	var out *types.Transaction
+	if err := json.Unmarshal(bytes, out); err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 type Sequencer struct {
@@ -303,7 +335,8 @@ type Sequencer struct {
 	forwarder   *TxForwarder
 
 	// Pointer to the last hotshot transaction sequenced, only used if we are operating in Espresso mode
-	hotShotIndex *HotShotIndex
+	hotShotIndex   *HotShotIndex
+	hotShotFetcher HotShotTxnFetcherInterface
 }
 
 func NewSequencer(execEngine *ExecutionEngine, l1Reader *headerreader.HeaderReader, configFetcher SequencerConfigFetcher) (*Sequencer, error) {
@@ -313,6 +346,10 @@ func NewSequencer(execEngine *ExecutionEngine, l1Reader *headerreader.HeaderRead
 	}
 	senderWhitelist := make(map[common.Address]struct{})
 	entries := strings.Split(config.SenderWhitelist, ",")
+	hotShotIndex := HotShotIndex{
+		blockIdx: 0,
+		txnIdx:   0,
+	}
 	for _, address := range entries {
 		if len(address) == 0 {
 			continue
@@ -329,7 +366,10 @@ func NewSequencer(execEngine *ExecutionEngine, l1Reader *headerreader.HeaderRead
 		l1BlockNumber:   0,
 		l1Timestamp:     0,
 		pauseChan:       nil,
-		onForwarderSet:  make(chan struct{}, 1),
+		hotShotIndex:    &hotShotIndex,
+		// TODO: remove hardcoded route
+		hotShotFetcher: NewHotShotTxnFetcher("http://localhost:50000"),
+		onForwarderSet: make(chan struct{}, 1),
 	}
 	s.nonceFailures = &nonceFailureCache{
 		containers.NewLruCacheWithOnEvict(config.NonceCacheSize, s.onNonceFailureEvict),
@@ -730,8 +770,12 @@ func (s *Sequencer) createBlockEspresso(ctx context.Context) (returnValue bool) 
 	config := s.config()
 
 	for {
-		var txn types.Transaction
-		txn, err = hotshot.NextArbitrumTransaction()
+		var txn *types.Transaction
+		txn, err := s.hotShotFetcher.GetArbitrumTxn(ctx, *s.hotShotIndex)
+		if err != nil {
+			//queueItem.returnResult(err)
+			continue
+		}
 		txBytes, err := txn.MarshalBinary()
 		if err != nil {
 			//queueItem.returnResult(err)
@@ -748,14 +792,14 @@ func (s *Sequencer) createBlockEspresso(ctx context.Context) (returnValue bool) 
 			break
 		}
 		totalBatchSize += len(txBytes)
-		queueItems = append(queueItems, txn)
+		txns = append(txns, *txn)
 	}
 
-	txes := make([]*types.Transaction, len(queueItems))
+	txes := make([]*types.Transaction, len(txns))
 	hooks := s.makeSequencingHooks()
-	hooks.ConditionalOptionsForTx = make([]*arbitrum_types.ConditionalOptions, len(queueItems))
-	for i, queueItem := range queueItems {
-		txes[i] = tx
+	hooks.ConditionalOptionsForTx = make([]*arbitrum_types.ConditionalOptions, len(txns))
+	for i, txn := range txns {
+		txes[i] = &txn
 	}
 
 	timestamp := time.Now().Unix()
@@ -783,39 +827,43 @@ func (s *Sequencer) createBlockEspresso(ctx context.Context) (returnValue bool) 
 		L1BaseFee:   nil,
 	}
 
-	start := time.Now()
-	block, err := s.execEngine.SequenceTransactions(header, txes, hooks)
-	elapsed := time.Since(start)
-	blockCreationTimer.Update(elapsed)
-	if elapsed >= time.Second*5 {
-		var blockNum *big.Int
-		if block != nil {
-			blockNum = block.Number()
-		}
-		log.Warn("took over 5 seconds to sequence a block", "elapsed", elapsed, "numTxes", len(txes), "success", block != nil, "l2Block", blockNum)
-	}
-	if err == nil && len(hooks.TxErrors) != len(txes) {
-		err = fmt.Errorf("unexpected number of error results: %v vs number of txes %v", len(hooks.TxErrors), len(txes))
-	}
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			// thread closed. We'll later try to forward these messages.
-			for _, item := range queueItems {
-				s.txRetryQueue.Push(item)
-			}
-			return true // don't return failure to avoid retrying immediately
-		}
-		log.Error("error sequencing transactions", "err", err)
-		for _, queueItem := range queueItems {
-			queueItem.returnResult(err)
-		}
-		return false
-	}
+	fmt.Println(header)
+	fmt.Println(txes)
 
-	if block != nil {
-		successfulBlocksCounter.Inc(1)
-		s.nonceCache.Finalize(block)
-	}
+	// start := time.Now()
+	// block, err := s.execEngine.SequenceTransactions(header, txes, hooks)
+	// elapsed := time.Since(start)
+	// blockCreationTimer.Update(elapsed)
+	// if elapsed >= time.Second*5 {
+	// 	var blockNum *big.Int
+	// 	if block != nil {
+	// 		blockNum = block.Number()
+	// 	}
+	// 	log.Warn("took over 5 seconds to sequence a block", "elapsed", elapsed, "numTxes", len(txes), "success", block != nil, "l2Block", blockNum)
+	// }
+	// if err == nil && len(hooks.TxErrors) != len(txes) {
+	// 	err = fmt.Errorf("unexpected number of error results: %v vs number of txes %v", len(hooks.TxErrors), len(txes))
+	// 	return false
+	// }
+	// if err != nil {
+	// 	if errors.Is(err, context.Canceled) {
+	// 		// thread closed. We'll later try to forward these messages.
+	// 		for _, item := range queueItems {
+	// 			s.txRetryQueue.Push(item)
+	// 		}
+	// 		return true // don't return failure to avoid retrying immediately
+	// 	}
+	// 	log.Error("error sequencing transactions", "err", err)
+	// 	for _, queueItem := range queueItems {
+	// 		queueItem.returnResult(err)
+	// 	}
+	// 	return false
+	// }
+
+	// if block != nil {
+	// 	successfulBlocksCounter.Inc(1)
+	// 	s.nonceCache.Finalize(block)
+	// }
 
 	return true
 }
@@ -825,11 +873,13 @@ func (s *Sequencer) usingEspresso() bool {
 }
 
 func (s *Sequencer) createBlock(ctx context.Context) (returnValue bool) {
-	if s.usingEspresso() {
-		return s.createBlockEspresso(ctx)
-	} else {
-		return s.createBlockDefault(ctx)
-	}
+	// if s.usingEspresso() {
+	// 	return s.createBlockEspresso(ctx)
+	// } else {
+	// 	return s.createBlockDefault(ctx)
+	// }
+	s.createBlockEspresso((ctx))
+	return s.createBlockDefault(ctx)
 }
 
 func (s *Sequencer) createBlockDefault(ctx context.Context) (returnValue bool) {

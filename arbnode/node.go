@@ -440,7 +440,6 @@ type Node struct {
 	InboxReader             *InboxReader
 	InboxTracker            *InboxTracker
 	DelayedSequencer        *DelayedSequencer
-	EspressoHandler         *EspressoHandler
 	BatchPoster             *BatchPoster
 	MessagePruner           *MessagePruner
 	BlockValidator          *staker.BlockValidator
@@ -855,13 +854,6 @@ func createNodeImpl(
 		return nil, err
 	}
 
-	var espresso *EspressoHandler
-	if config.EspressoSequencer {
-		// EspressoHandler acts like DelayedSequencer, read txs/messages from L1 and build a block.
-		// Maybe we can reuse or recreate some components here.
-		espresso, err = NewEspressoHandler(l1Reader, exec, config)
-	}
-
 	return &Node{
 		ArbDB:                   arbDb,
 		Stack:                   stack,
@@ -872,7 +864,6 @@ func createNodeImpl(
 		InboxReader:             inboxReader,
 		InboxTracker:            inboxTracker,
 		DelayedSequencer:        delayedSequencer,
-		EspressoHandler:         espresso,
 		BatchPoster:             batchPoster,
 		MessagePruner:           messagePruner,
 		BlockValidator:          blockValidator,
@@ -999,9 +990,6 @@ func (n *Node) Start(ctx context.Context) error {
 	if n.DelayedSequencer != nil {
 		n.DelayedSequencer.Start(ctx)
 	}
-	if n.EspressoHandler != nil {
-		n.EspressoHandler.Start(ctx)
-	}
 	if n.BatchPoster != nil {
 		n.BatchPoster.Start(ctx)
 	}
@@ -1083,9 +1071,6 @@ func (n *Node) StopAndWait() {
 	n.Stack.StopRPC() // does nothing if not running
 	if n.DelayedSequencer != nil && n.DelayedSequencer.Started() {
 		n.DelayedSequencer.StopAndWait()
-	}
-	if n.EspressoHandler != nil && n.EspressoHandler.Started() {
-		n.EspressoHandler.StopAndWait()
 	}
 	if n.BatchPoster != nil && n.BatchPoster.Started() {
 		n.BatchPoster.StopAndWait()
