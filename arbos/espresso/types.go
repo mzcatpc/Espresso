@@ -9,16 +9,18 @@ import (
 )
 
 type Header struct {
-	TransactionsRoot NmtRoot `json:"transactions_root"`
-
-	Metadata `json:"metadata"`
+	Height            uint64       `json:"height"`
+	Timestamp         uint64       `json:"timestamp"`
+	L1Head            uint64       `json:"l1_head"`
+	L1Finalized       *L1BlockInfo `json:"l1_finalized" rlp:"nil"`
+	PayloadCommitment Bytes        `json:"payload_commitment"`
+	TransactionsRoot  NmtRoot      `json:"transactions_root"`
 }
 
 func (h *Header) UnmarshalJSON(b []byte) error {
 	// Parse using pointers so we can distinguish between missing and default fields.
 	type Dec struct {
-		TransactionsRoot *NmtRoot  `json:"transactions_root"`
-		Metadata         *Metadata `json:"metadata"`
+		TransactionsRoot *NmtRoot `json:"transactions_root"`
 	}
 
 	var dec Dec
@@ -30,11 +32,6 @@ func (h *Header) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("Field transactions_root of type Header is required")
 	}
 	h.TransactionsRoot = *dec.TransactionsRoot
-
-	if dec.Metadata == nil {
-		return fmt.Errorf("Field metadata of type Header is required")
-	}
-	h.Metadata = *dec.Metadata
 
 	return nil
 }
