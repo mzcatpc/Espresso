@@ -65,6 +65,8 @@ github.com/EspressoSystems/espresso-sequencer-go v0.0.2-0.20231213134923-6fd0cb5
 github.com/EspressoSystems/espresso-sequencer-go v0.0.2-0.20231213134923-6fd0cb5f60f1/go.mod h1:T3MyQRnfbCSTBhAAG2WASmVPCwWkl0/sPKKY5Z1ewtg=
 github.com/EspressoSystems/espresso-sequencer-go v0.0.2 h1:OI3HHqXwrltl/YjQb4ZOKyK+M5t/+2Tqp9aTMssPDPc=
 github.com/EspressoSystems/espresso-sequencer-go v0.0.2/go.mod h1:T3MyQRnfbCSTBhAAG2WASmVPCwWkl0/sPKKY5Z1ewtg=
+github.com/EspressoSystems/espresso-sequencer-go v0.0.3-0.20240105024202-f902ae6fac1d h1:dUF1d3om9y3xIwMQznFv+kh0UbeMwr2YPVPLviubIY8=
+github.com/EspressoSystems/espresso-sequencer-go v0.0.3-0.20240105024202-f902ae6fac1d/go.mod h1:T3MyQRnfbCSTBhAAG2WASmVPCwWkl0/sPKKY5Z1ewtg=
 github.com/Joker/hpp v1.0.0/go.mod h1:8x5n+M1Hp5hC0g8okX3sR3vFQwynaX/UgSOM9MeBKzY=
 github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8Leh48TZaKVeNIfJntJ2wa0=
 github.com/Kubuxu/go-os-helper v0.0.1/go.mod h1:N8B+I7vPCT80IcP58r50u4+gEEcsZETFUpAzWW2ep1Y=
