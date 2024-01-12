@@ -594,6 +594,7 @@ func mainImpl() int {
 		}
 		if count == 0 {
 			err = currentNode.TxStreamer.AddFakeInitMessage()
+			// See if no init
 			if err != nil {
 				panic(err)
 			}
