@@ -20,4 +20,4 @@
 [submodule "nitro-testnode"]
 	path = nitro-testnode
 	url = https://github.com/EspressoSystems/nitro-testnode
-	branch = integration
+	branch = release-gibraltar
