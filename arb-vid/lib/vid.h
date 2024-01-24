@@ -1,1 +1,1 @@
-void whisper(char *name);
+void mock_crypto(char *message);

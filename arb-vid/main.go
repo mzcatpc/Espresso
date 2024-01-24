@@ -9,5 +9,5 @@ package main
 import "C"
 
 func main() {
-	C.whisper(C.CString("world"))
+	C.mock_crypto(C.CString("running some Rust crypto from Go"))
 }
