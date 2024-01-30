@@ -91,3 +91,7 @@ pub fn brotli_decompress(mut env: WasmEnvMut, sp: u32) {
     sp.write_slice(out_buf_ptr, &output[..output_len]);
     sp.write_u64(output_arg, output_len as u64);
 }
+
+pub fn verify_namespace(mut env: WasmEnvMut, sp: u32) {
+    panic!("unimplemented")
+}

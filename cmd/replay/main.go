@@ -23,6 +23,7 @@ import (
 
 	espressoNmt "github.com/EspressoSystems/espresso-sequencer-go/nmt"
 	espressoTypes "github.com/EspressoSystems/espresso-sequencer-go/types"
+	"github.com/offchainlabs/nitro/arbcompress"
 	"github.com/offchainlabs/nitro/arbos"
 	"github.com/offchainlabs/nitro/arbos/arbosState"
 	"github.com/offchainlabs/nitro/arbos/arbostypes"
@@ -154,6 +155,7 @@ func main() {
 	db := state.NewDatabase(raw)
 
 	lastBlockHash := wavmio.GetLastBlockHash()
+	arbcompress.CallTestVid()
 
 	var lastBlockHeader *types.Header
 	var lastBlockStateRoot common.Hash

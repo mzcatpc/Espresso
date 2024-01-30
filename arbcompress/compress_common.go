@@ -13,3 +13,7 @@ func compressedBufferSizeFor(length int) int {
 func CompressLevel(input []byte, level int) ([]byte, error) {
 	return compressLevel(input, level)
 }
+
+func CallTestVid() {
+	callTestVid()
+}

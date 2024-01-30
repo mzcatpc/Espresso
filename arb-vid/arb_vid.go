@@ -1,6 +1,4 @@
-package main
-
-// NOTE: There should be NO space between the comments and the `import "C"` line.
+package arb_vid
 
 /*
 #cgo LDFLAGS: -L./lib -lvid
@@ -8,6 +6,7 @@ package main
 */
 import "C"
 
-func main() {
+func Test() {
 	C.mock_crypto(C.CString("running some Rust crypto from Go"))
+
 }

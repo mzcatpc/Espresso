@@ -14,6 +14,8 @@ func brotliCompress(inBuf []byte, outBuf []byte, level int, windowSize int) int6
 
 func brotliDecompress(inBuf []byte, outBuf []byte) int64
 
+func verifyNamespace()
+
 func Decompress(input []byte, maxSize int) ([]byte, error) {
 	outBuf := make([]byte, maxSize)
 	outLen := brotliDecompress(input, outBuf)
@@ -31,4 +33,8 @@ func compressLevel(input []byte, level int) ([]byte, error) {
 		return nil, fmt.Errorf("failed compression")
 	}
 	return outBuf[:outLen], nil
+}
+
+func callTestVid() {
+	verifyNamespace()
 }

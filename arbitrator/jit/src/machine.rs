@@ -119,6 +119,7 @@ pub fn create(opts: &Opts, env: WasmEnv) -> (Instance, FunctionEnv<WasmEnv>, Sto
 
             "github.com/offchainlabs/nitro/arbcompress.brotliCompress" => func!(arbcompress::brotli_compress),
             "github.com/offchainlabs/nitro/arbcompress.brotliDecompress" => func!(arbcompress::brotli_decompress),
+            "github.com/offchainlabs/nitro/arbcompress.verifyNamespace" => func!(arbcompress::verify_namespace),
         },
     };
 

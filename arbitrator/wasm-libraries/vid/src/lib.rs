@@ -28,15 +28,18 @@ use jf_primitives::{
 // const BROTLI_RES_SUCCESS: u32 = 1;
 
 #[no_mangle]
-pub unsafe extern "C" fn go__github_com_offchainlabs_nitro_test_vid(sp: GoStack) {
-    let advz: Advz<Bls12_381, sha2::Sha256>;
-    let (payload_chunk_size, num_storage_nodes) = (8, 10);
+pub unsafe extern "C" fn go__github_com_offchainlabs_nitro_arbcompress_verifyNamespace(
+    sp: GoStack,
+) {
+    // let advz: Advz<Bls12_381, sha2::Sha256>;
+    // let (payload_chunk_size, num_storage_nodes) = (8, 10);
 
-    let mut rng = jf_utils::test_rng();
-    let srs = UnivariateKzgPCS::<Bls12_381>::gen_srs_for_testing(
-        &mut rng,
-        checked_fft_size(payload_chunk_size - 1).unwrap(),
-    )
-    .unwrap();
-    advz = Advz::new(payload_chunk_size, num_storage_nodes, srs).unwrap();
+    // let mut rng = jf_utils::test_rng();
+    // let srs = UnivariateKzgPCS::<Bls12_381>::gen_srs_for_testing(
+    //     &mut rng,
+    //     checked_fft_size(payload_chunk_size - 1).unwrap(),
+    // )
+    // .unwrap();
+    // advz = Advz::new(payload_chunk_size, num_storage_nodes, srs).unwrap();
+    return unimplemented!("asdf");
 }

@@ -9,8 +9,10 @@ package arbcompress
 /*
 #cgo CFLAGS: -g -Wall -I${SRCDIR}/../target/include/
 #cgo LDFLAGS: ${SRCDIR}/../target/lib/libbrotlidec-static.a ${SRCDIR}/../target/lib/libbrotlienc-static.a ${SRCDIR}/../target/lib/libbrotlicommon-static.a -lm
+#cgo LDFLAGS: -L../arb-vid/lib -lvid
 #include "brotli/encode.h"
 #include "brotli/decode.h"
+#include "../arb-vid/lib/vid.h"
 */
 import "C"
 import (
@@ -48,6 +50,11 @@ func compressLevel(input []byte, level int) ([]byte, error) {
 		return nil, fmt.Errorf("failed compression: %d", res)
 	}
 	return outbuf[:outSize], nil
+}
+
+func callTestVid() error {
+	C.mock_crypto(C.CString("running some Rust crypto from Go"))
+	return nil
 }
 
 func CompressWell(input []byte) ([]byte, error) {

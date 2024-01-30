@@ -14,3 +14,8 @@ TEXT ·brotliCompress(SB), NOSPLIT, $0
 TEXT ·brotliDecompress(SB), NOSPLIT, $0
   CallImport
   RET
+
+TEXT ·verifyNamespace(SB), NOSPLIT, $0
+  CallImport
+  RET
+
