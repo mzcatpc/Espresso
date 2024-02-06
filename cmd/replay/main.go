@@ -279,7 +279,6 @@ func main() {
 				panic("batch missing espresso justification")
 			}
 			// Mock verify namespace call
-			arbvid.VerifyNamespace()
 
 			hotshotHeader := jst.Header
 			height := hotshotHeader.Height
@@ -299,6 +298,9 @@ func main() {
 			}
 			var roots = []*espressoTypes.NmtRoot{&hotshotHeader.TransactionsRoot}
 			var proofs = []*espressoTypes.NmtProof{&jst.Proof}
+
+			var srs espressoTypes.Bytes
+			err = arbvid.VerifyNamespace(chainConfig.ChainID.Uint64(), jst.Proof, hotshotHeader.TransactionsRoot, txs, srs)
 
 			err = espressoNmt.ValidateBatchTransactions(chainConfig.ChainID.Uint64(), roots, proofs, txs)
 			if err != nil {

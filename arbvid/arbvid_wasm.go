@@ -6,4 +6,6 @@
 
 package arbvid
 
-func verifyNamespace()
+import espressoTypes "github.com/EspressoSystems/espresso-sequencer-go/types"
+
+func verifyNamespace(namespace uint64, proof espressoTypes.Bytes, block_comm espressoTypes.NmtRoot, txs []espressoTypes.Bytes, srs espressoTypes.Bytes)
