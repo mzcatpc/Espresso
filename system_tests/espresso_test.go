@@ -237,7 +237,7 @@ func createValidationNode(ctx context.Context, t *testing.T, jit bool) func() {
 }
 
 func waitFor(t *testing.T, ctxinput context.Context, condition func() bool) error {
-	ctx, cancel := context.WithTimeout(ctxinput, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctxinput, 3000*time.Second)
 	defer cancel()
 
 	for {
@@ -245,7 +245,7 @@ func waitFor(t *testing.T, ctxinput context.Context, condition func() bool) erro
 			return nil
 		}
 		select {
-		case <-time.After(time.Second):
+		case <-time.After(time.Second * 2):
 		case <-ctx.Done():
 			return ctx.Err()
 		}

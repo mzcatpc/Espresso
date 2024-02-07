@@ -320,6 +320,13 @@ func TestEspressoE2E(t *testing.T) {
 	badOpts := builder.L1Info.GetDefaultCallOpts("Staker2", ctx)
 	i := 0
 	err = waitFor(t, ctx, func() bool {
+		log.Info("bad staker acts", "step", i)
+		txB, err := badStaker.Act(ctx)
+		Require(t, err)
+		if txB != nil {
+			_, err = builder.L1.EnsureTxSucceeded(txB)
+			Require(t, err)
+		}
 		log.Info("good staker acts", "step", i)
 		txA, err := goodStaker.Act(ctx)
 		Require(t, err)
@@ -328,17 +335,41 @@ func TestEspressoE2E(t *testing.T) {
 			Require(t, err)
 		}
 
-		log.Info("bad staker acts", "step", i)
-		txB, err := badStaker.Act(ctx)
-		Require(t, err)
-		if txB != nil {
-			_, err = builder.L1.EnsureTxSucceeded(txB)
-			Require(t, err)
-		}
 		i += 1
 		conflict, err := validatorUtils.FindStakerConflict(&bind.CallOpts{}, builder.L2.ConsensusNode.DeployInfo.Rollup, goodOpts.From, badOpts.From, big.NewInt(1024))
 		Require(t, err)
 		return staker.ConflictType(conflict.Ty) == staker.CONFLICT_TYPE_FOUND
+	})
+	Require(t, err)
+	log.Info("detect challenge")
+
+	err = waitFor(t, ctx, func() bool {
+
+		log.Info("bad staker acts", "step", i)
+		txB, err := badStaker.Act(ctx)
+		if err != nil {
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "lost challenge") ||
+				strings.Contains(errMsg, "SAME_OSP_END") ||
+				strings.Contains(errMsg, "BAD_SEQINBOX_MESSAGE") {
+				log.Info("challenge completed! asserter hit expected error")
+				return true
+			}
+		}
+		if txB != nil {
+			_, err = builder.L1.EnsureTxSucceeded(txB)
+			Require(t, err)
+		}
+
+		log.Info("good staker acts", "step", i)
+		txA, err := goodStaker.Act(ctx)
+		Require(t, err)
+		if txA != nil {
+			_, err = builder.L1.EnsureTxSucceeded(txA)
+			Require(t, err)
+		}
+		i += 1
+		return false
 	})
 	Require(t, err)
 }
