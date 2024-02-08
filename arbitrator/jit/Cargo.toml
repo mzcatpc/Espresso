@@ -20,14 +20,14 @@ libc = "0.2.132"
 ouroboros = "0.16.0"
 
 sha2 = "0.9.9"
-# jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", features = [
-#     "test-srs",
-# ] }
-# jf-utils = { git = "https://github.com/EspressoSystems/jellyfish", features = [
-# ] }
-jf-primitives = { path = "../../../jellyfish/primitives", features = [
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", features = [
     "test-srs",
 ] }
+# jf-utils = { git = "https://github.com/EspressoSystems/jellyfish", features = [
+# ] }
+# jf-primitives = { path = "../../../jellyfish/primitives", features = [
+#     "test-srs",
+# ] }
 #jf-utils = { path = "../../../../jellyfish", features = [] }
 
 ark-bls12-381 = "0.4.0"

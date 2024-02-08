@@ -9,4 +9,5 @@ import (
 
 func VerifyNamespace(namespace uint64, proof espressoTypes.Bytes, block_comm espressoTypes.NmtRoot, txs []espressoTypes.Bytes, srs espressoTypes.Bytes) error {
 	verifyNamespace(namespace, proof, block_comm, txs, srs)
+	return nil
 }

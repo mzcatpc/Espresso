@@ -72,5 +72,5 @@ pub fn verify_namespace(mut env: WasmEnvMut, sp: u32) {
     ];
     let srs_vec = srs_bytes.to_vec();
     let srs = UnivariateUniversalParams::<Bls12_381>::deserialize_compressed(&*srs_vec).unwrap();
-    advz = Advz::new(payload_chunk_size, num_storage_nodes, srs).unwrap();
+    advz = Advz::new(payload_chunk_size, num_storage_nodes, 1, srs).unwrap();
 }
