@@ -516,6 +516,7 @@ func (v *BlockValidator) createNextValidationEntry(ctx context.Context) (bool, e
 			_, prevJst, err := arbos.ParseEspressoMsg(msg.Message)
 			if err != nil {
 				prevEspressoJst = prevJst
+				break
 			}
 		}
 		if prevEspressoJst != nil && prevEspressoJst.Header.Height+1 != jst.Header.Height {
