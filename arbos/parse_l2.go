@@ -246,7 +246,7 @@ func parseEspressoMsg(rd io.Reader) ([]espressoTypes.Bytes, *arbostypes.Espresso
 			txs = append(txs, nextMsg)
 		}
 	default:
-		return nil, nil, errors.New("Unexpected l2 message kind")
+		return nil, nil, fmt.Errorf("unexpected l2 message kind %v", l2KindBuf[0])
 	}
 }
 

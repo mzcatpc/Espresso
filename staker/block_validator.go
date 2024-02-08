@@ -507,25 +507,20 @@ func (v *BlockValidator) createNextValidationEntry(ctx context.Context) (bool, e
 			return false, err
 		}
 		// Check that Espresso block numbers increase consecutively. This ensures that the sequenced L2 chain does not skip an Espresso block.
-		var prevEspressoMsg *arbostypes.L1IncomingMessage
+		var prevEspressoJst *arbostypes.EspressoBlockJustification
 		for i := pos - 1; i != 0; i-- {
 			msg, err := v.streamer.GetMessage(i)
 			if err != nil {
 				return false, err
 			}
-			if msg.Message.Header.Kind == arbostypes.L1MessageType_L2Message {
-				prevEspressoMsg = msg.Message
+			_, prevJst, err := arbos.ParseEspressoMsg(msg.Message)
+			if err != nil {
+				prevEspressoJst = prevJst
 				break
 			}
 		}
-		if prevEspressoMsg != nil {
-			_, prevJst, err := arbos.ParseEspressoMsg(prevEspressoMsg)
-			if err != nil {
-				return false, err
-			}
-			if prevJst.Header.Height+1 != jst.Header.Height {
-				return false, fmt.Errorf("l2 chain appears to have skipped an espresso block, last espresso block number: %d, current: %d", prevJst.Header.Height, jst.Header.Height)
-			}
+		if prevEspressoJst != nil && prevEspressoJst.Header.Height+1 != jst.Header.Height {
+			return false, fmt.Errorf("l2 chain appears to have skipped an espresso block, last espresso block number: %d, current: %d", prevEspressoJst.Header.Height, jst.Header.Height)
 		}
 
 		fetchedCommitment, err := v.hotShotReader.L1HotShotCommitmentFromHeight(jst.Header.Height)
